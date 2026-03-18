@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tracking process PISCEA</title>
+
+<style>
+body{font-family:Arial;margin:20px;background:#eef2f7}
+.container{max-width:1100px;margin:auto}
+.card{background:white;padding:15px;border-radius:10px;margin-bottom:15px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px;border-bottom:1px solid #ddd;font-size:14px}
+input,select,button{padding:6px;margin:4px}
+.dashboard{display:flex;gap:10px;flex-wrap:wrap}
+.stat{flex:1;background:#fff;padding:10px;border-radius:8px}
+.bad{color:red}
+.warn{color:orange}
+.good{color:green}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2>Tracking process PISCEA</h2>
+
+<div class="dashboard">
+<div class="stat">Total: <span id="total">0</span></div>
+<div class="stat">Activos: <span id="activos">0</span></div>
+<div class="stat">Finalizados: <span id="finalizados">0</span></div>
+</div>
+
+<div class="card">
+<h3>Nuevo proceso</h3>
+<input id="exp" placeholder="Expediente">
+<input id="proc" placeholder="Proceso">
+
+<select id="dep">
+<option>Administrador contrato</option>
+<option>Coordinación General</option>
+<option>Coordinación Administrativa</option>
+<option>Adquisiciones</option>
+<option>BID</option>
+<option>DINCAP</option>
+<option>MAG</option>
+<option>Secretaría General</option>
+<option>Auditoría</option>
+<option>Dirección Jurídica</option>
+<option>Comite de Evaluación</option>
+<option>PISCEA</option>
+</select>
+
+<button onclick="agregar()">Agregar</button>
+</div>
+
+<div class="card">
+<h3>Procesos</h3>
+<table>
+<thead>
+<tr>
+<th>Expediente</th>
+<th>Proceso</th>
+<th>Dependencia</th>
+<th>Días</th>
+<th>Estado</th>
+<th>Cambiar</th>
+</tr>
+</thead>
+<tbody id="tabla"></tbody>
+</table>
+</div>
+
+<div class="card">
+<h3>Cuellos de botella</h3>
+<div id="cuellos"></div>
+</div>
+
+</div>
+
+<script>
+
+let esperado={
+"Administrador contrato":2,
+"Coordinación General":4,
+"Coordinación Administrativa":4,
+"Adquisiciones":7,
+"BID":10,
+"DINCAP":5,
+"MAG":4,
+"Secretaría General":3,
+"Auditoría":5,
+"Dirección Jurídica":6,
+"Comite de Evaluación":7,
+"PISCEA":3
+}
+
+let data=JSON.parse(localStorage.getItem("piscea")||"[]")
+
+function guardar(){
+localStorage.setItem("piscea",JSON.stringify(data))
+}
+
+function agregar(){
+let exp=expInput.value
+let proc=procInput.value
+let dep=depInput.value
+
+if(!exp||!proc)return
+
+data.push({
+exp,proc,dep,fecha:new Date().toISOString()
+})
+
+guardar()
+render()
+}
+
+function cambiar(i,nueva){
+data[i].dep=nueva
+data[i].fecha=new Date().toISOString()
+guardar()
+render()
+}
+
+function dias(f){
+return Math.floor((new Date()-new Date(f))/(1000*60*60*24))
+}
+
+function estado(dep,d){
+let e=esperado[dep]
+if(d<=e)return "<span class='good'>OK</span>"
+if(d<=e+3)return "<span class='warn'>Alerta</span>"
+return "<span class='bad'>Retraso</span>"
+}
+
+function render(){
+
+let tbody=document.getElementById("tabla")
+tbody.innerHTML=""
+
+let activos=0,finalizados=0
+
+let resumen={}
+
+data.forEach((e,i)=>{
+
+let d=dias(e.fecha)
+
+if(!resumen[e.dep])resumen[e.dep]=[]
+resumen[e.dep].push(d)
+
+activos++
+
+let tr=document.createElement("tr")
+
+tr.innerHTML=`
+<td>${e.exp}</td>
+<td>${e.proc}</td>
+<td>${e.dep}</td>
+<td>${d}</td>
+<td>${estado(e.dep,d)}</td>
+<td>
+<select onchange="cambiar(${i},this.value)">
+${Object.keys(esperado).map(x=>`<option ${x==e.dep?'selected':''}>${x}</option>`).join("")}
+</select>
+</td>
+`
+
+tbody.appendChild(tr)
+
+})
+
+document.getElementById("total").innerText=data.length
+document.getElementById("activos").innerText=activos
+document.getElementById("finalizados").innerText=finalizados
+
+// CUELLOS
+let html=""
+
+Object.keys(resumen).forEach(dep=>{
+let lista=resumen[dep]
+let prom=Math.round(lista.reduce((a,b)=>a+b,0)/lista.length)
+html+=`${dep}: ${prom} días<br>`
+})
+
+document.getElementById("cuellos").innerHTML=html
+
+}
+
+let expInput=document.getElementById("exp")
+let procInput=document.getElementById("proc")
+let depInput=document.getElementById("dep")
+
+render()
+
+</script>
+
+</body>
+</html>
